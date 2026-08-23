@@ -113,3 +113,8 @@ space and will float or drift even while tracking perfectly. Run
 
 [`docs/full-writeup.md`](docs/full-writeup.md) has the full diagnosis with raw log
 excerpts, plus the theories that turned out to be wrong and why.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Use it, change it, ship it.
+Issues and PRs welcome.
