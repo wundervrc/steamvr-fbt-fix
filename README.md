@@ -96,6 +96,12 @@ space and will float or drift even while tracking perfectly. Run
 [OpenVR-SpaceCalibrator](https://github.com/hyblocker/OpenVR-SpaceCalibrator)
 (`openvr-space-calibrator-linux` on the AUR) once per room setup.
 
+It worked out of the box here — no configuration needed. One wrinkle: installing it
+**registers a new OpenVR driver with SteamVR**, so SteamVR must be restarted before
+it shows up. If SteamVR was already running, restart it and reconnect your headset
+(with Steam Link that means reconnecting from inside the headset too). Nothing is
+broken if it doesn't appear immediately — it just hasn't been picked up yet.
+
 `motoc` does **not** apply here — it calibrates against WiVRn/monado, not SteamVR.
 
 ## Worth knowing
