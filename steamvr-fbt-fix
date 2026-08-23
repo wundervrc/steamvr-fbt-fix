@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+# steamvr-fbt-fix — make lighthouse trackers (Vive/Tundra) work in SteamVR on Linux
+# when the HMD comes from a non-lighthouse driver (Steam Link / ALVR / WiVRn).
+#
+# Root cause it fixes:
+#   SteamVR only *completes activation* for devices belonging to the driver that
+#   provides the HMD. With Steam Link the HMD comes from driver_vrlink, so
+#   driver_lighthouse loads, opens the dongles, and talks to the trackers -- but
+#   activation never finishes and they never appear. The tell in vrserver.txt is
+#   a "started activation" line with no matching "finished adding" line, plus the
+#   tracker looping "Transition to protocol version 0/1" once per second.
+#
+# The fix is steamvr.activateMultipleDrivers = true (+ driver_lighthouse.enable).
+#
+# Usage:
+#   steamvr-fbt-fix            patch settings (stops SteamVR first)
+#   steamvr-fbt-fix --launch   patch, then start SteamVR and verify from the log
+#   steamvr-fbt-fix --check    report current state, change nothing
+#
+set -uo pipefail
+
+STEAM_DIR="${STEAM_DIR:-$HOME/.local/share/Steam}"
+[ -d "$STEAM_DIR" ] || STEAM_DIR="$(readlink -f "$HOME/.steam/steam" 2>/dev/null)"
+SETTINGS="$STEAM_DIR/config/steamvr.vrsettings"
+LOG="$STEAM_DIR/logs/vrserver.txt"
+STEAMVR_APPID=250820
+
+MODE=patch
+case "${1:-}" in
+  --check)  MODE=check ;;
+  --launch) MODE=launch ;;
+  --help|-h) sed -n '2,25p' "$0"; exit 0 ;;
+  "") ;;
+  *) echo "unknown option: $1 (try --help)" >&2; exit 2 ;;
+esac
+
+say()  { printf '\033[1;36m==>\033[0m %s\n' "$*"; }
+ok()   { printf '  \033[1;32mOK\033[0m   %s\n' "$*"; }
+warn() { printf '  \033[1;33mWARN\033[0m %s\n' "$*"; }
+bad()  { printf '  \033[1;31mFAIL\033[0m %s\n' "$*"; }
+
+[ -f "$SETTINGS" ] || { bad "no steamvr.vrsettings at $SETTINGS -- run SteamVR once first"; exit 1; }
+
+# ---------------------------------------------------------------- 1. hardware
+say "Checking lighthouse hardware"
+DONGLES=$(lsusb 2>/dev/null | grep -c '28de:2101')
+if [ "$DONGLES" -gt 0 ]; then
+  ok "$DONGLES Watchman dongle(s) present"
+else
+  bad "no Watchman dongles (28de:2101) found -- replug them; SteamVR only enumerates at startup"
+fi
+
+# --------------------------------------------------- 2. dongle-stealing procs
+# Two processes cannot own the same lighthouse USB devices. WiVRn with
+# use-steamvr-lh loads Valve's lighthouse driver in-process and will hold them.
+say "Checking for processes holding the dongles"
+CONFLICT=0
+for p in wivrn-server monado-service; do
+  if pgrep -x "$p" >/dev/null 2>&1; then
+    warn "$p is running and may hold the dongles"
+    CONFLICT=1
+  fi
+done
+if systemctl --user is-active --quiet wivrn.service 2>/dev/null; then
+  warn "wivrn.service (user) is active"
+  CONFLICT=1
+fi
+[ "$CONFLICT" -eq 0 ] && ok "nothing else is holding the lighthouse devices"
+if [ "$CONFLICT" -eq 1 ] && [ "$MODE" != check ]; then
+  warn "stop WiVRn before using SteamVR:  systemctl --user stop wivrn"
+fi
+
+# ------------------------------------------------------------ 3. check-only
+current_val() {
+  python3 - "$SETTINGS" "$1" "$2" <<'PY' 2>/dev/null
+import json, sys
+d = json.load(open(sys.argv[1]))
+print(d.get(sys.argv[2], {}).get(sys.argv[3], "ABSENT"))
+PY
+}
+
+if [ "$MODE" = check ]; then
+  say "Current settings"
+  echo "  steamvr.activateMultipleDrivers = $(current_val steamvr activateMultipleDrivers)"
+  echo "  driver_lighthouse.enable        = $(current_val driver_lighthouse enable)"
+  if [ -f "$LOG" ]; then
+    say "Last session's lighthouse devices"
+    grep -E "Driver 'lighthouse' (started activation|finished adding)" "$LOG" \
+      | sed 's/^.*\] - /  /' | tail -20
+    if grep -q "started activation of tracked device with serial number 'LHR" "$LOG" \
+       && ! grep -q "finished adding tracked device with serial number 'LHR" "$LOG"; then
+      bad "trackers started activation but never finished -- this is the bug this script fixes"
+    fi
+  fi
+  exit 0
+fi
+
+# ------------------------------------------------------- 4. stop SteamVR
+# SteamVR rewrites steamvr.vrsettings on exit, so it MUST be down before we edit.
+say "Stopping SteamVR (it rewrites settings on exit)"
+if pgrep -f "SteamVR/bin/linux64/vr" | grep -qv "^$$\$"; then
+  pkill -TERM -f "SteamVR/bin/linux64/vrmonitor" 2>/dev/null
+  pkill -TERM -f "SteamVR/bin/linux64/vrserver"  2>/dev/null
+  pkill -TERM -f "SteamVR/bin/linux64/vrstartup" 2>/dev/null
+  for _ in $(seq 20); do
+    pgrep -f "SteamVR/bin/linux64/vrserver" >/dev/null 2>&1 || break
+    sleep 0.5
+  done
+  pkill -KILL -f "SteamVR/bin/linux64/vrserver" 2>/dev/null
+  ok "SteamVR stopped"
+else
+  ok "SteamVR was not running"
+fi
+
+# ------------------------------------------------------------ 5. patch JSON
+say "Patching $SETTINGS"
+BACKUP="$SETTINGS.bak.$(date +%Y%m%d-%H%M%S)"
+cp "$SETTINGS" "$BACKUP" && ok "backup -> $BACKUP"
+
+python3 - "$SETTINGS" <<'PY'
+import json, sys, collections
+p = sys.argv[1]
+with open(p) as f:
+    d = json.load(f, object_pairs_hook=collections.OrderedDict)
+
+before = (d.get('steamvr', {}).get('activateMultipleDrivers'),
+          d.get('driver_lighthouse', {}).get('enable'))
+
+d.setdefault('steamvr', collections.OrderedDict())['activateMultipleDrivers'] = True
+d.setdefault('driver_lighthouse', collections.OrderedDict())['enable'] = True
+
+out = collections.OrderedDict(sorted(d.items()))
+for k, v in out.items():
+    if isinstance(v, dict):
+        out[k] = collections.OrderedDict(sorted(v.items()))
+with open(p, 'w') as f:
+    json.dump(out, f, indent=3)
+
+print(f"  activateMultipleDrivers: {before[0]} -> True")
+print(f"  driver_lighthouse.enable: {before[1]} -> True")
+PY
+[ $? -eq 0 ] && ok "settings patched" || { bad "patch failed -- restoring"; cp "$BACKUP" "$SETTINGS"; exit 1; }
+
+# ------------------------------------------------------------- 6. launch
+if [ "$MODE" = launch ]; then
+  say "Launching SteamVR"
+  setsid steam "steam://rungameid/$STEAMVR_APPID" >/dev/null 2>&1 < /dev/null &
+  disown 2>/dev/null
+
+  until pgrep -f "SteamVR/bin/linux64/vrserver" >/dev/null 2>&1; do sleep 1; done
+  ok "vrserver up"
+  echo
+  say "Connect your headset now. Trackers activate only once an HMD is present."
+  echo "  Watching for tracker activation (Ctrl-C to stop)..."
+  echo
+  timeout 300 tail -f -n 0 "$LOG" \
+    | grep -E --line-buffered "finished adding tracked device|CALIBRATED base|BOOTSTRAPPED base" \
+    | sed 's/^.*\] - /  /'
+else
+  echo
+  say "Done. Start SteamVR, then connect your headset."
+fi
+
+echo
+say "Reminder: Steam Link tracks inside-out, so trackers land in a different"
+echo "  coordinate space. Run OpenVR-SpaceCalibrator once per session/room setup."
