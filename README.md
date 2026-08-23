@@ -115,6 +115,18 @@ broken if it doesn't appear immediately — it just hasn't been picked up yet.
 - **A one-second `Transition to protocol version 0/1` loop** is the secondary tell —
   the radio link resetting because the device never attached.
 
+## Playspace mover (optional)
+
+Not required for tracking, but part of a complete FBT setup. **OVR Advanced
+Settings** runs fine under Proton, and that's where the playspace mover binding
+lives.
+
+Configure it in **desktop mode**, not from inside VR — in-headset interaction with
+its panel was unreliable, while the desktop window worked perfectly. Apply the
+playspace mover binding to OVR Advanced Settings itself; it does *not* show up
+among the bindings that the OpenVR-SpaceCalibrator package registers, which is an
+easy place to go looking for it and come up empty.
+
 ## More
 
 [`docs/full-writeup.md`](docs/full-writeup.md) has the full diagnosis with raw log

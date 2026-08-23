@@ -118,6 +118,18 @@ SteamVR session. (`~/.config/motoc/last.json` holds the WiVRn-side calibration:
   unassigned trackers. SteamVR logs `Not autobinding role for device path:
   /devices/htc/vive_trackerLHR-4177671B`, which is harmless.
 
+## Playspace mover (optional)
+
+Not required for tracking, but part of a complete FBT setup. **OVR Advanced
+Settings** runs fine under Proton, and that's where the playspace mover binding
+lives.
+
+Configure it in **desktop mode**, not from inside VR — in-headset interaction with
+its panel was unreliable, while the desktop window worked perfectly. Apply the
+playspace mover binding to OVR Advanced Settings itself; it does *not* show up
+among the bindings that the OpenVR-SpaceCalibrator package registers, which is an
+easy place to go looking for it and come up empty.
+
 ## Script
 
 Installed as `steamvr-fbt-fix` (see the README).
