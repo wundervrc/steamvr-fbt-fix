@@ -121,14 +121,18 @@ SteamVR session. (`~/.config/motoc/last.json` holds the WiVRn-side calibration:
 ## Playspace mover (optional)
 
 Not required for tracking, but part of a complete FBT setup. **OVR Advanced
-Settings** runs fine under Proton, and that's where the playspace mover binding
-lives.
+Settings** runs fine under Proton, and applying the playspace mover binding to it
+works.
 
 Configure it in **desktop mode**, not from inside VR — in-headset interaction with
-its panel was unreliable, while the desktop window worked perfectly. Apply the
-playspace mover binding to OVR Advanced Settings itself; it does *not* show up
-among the bindings that the OpenVR-SpaceCalibrator package registers, which is an
-easy place to go looking for it and come up empty.
+its panel was unreliable, while the desktop window worked perfectly. That part is
+the useful finding.
+
+The choice of OVRAS itself is just familiarity carried over from Windows. Native
+Linux options exist and weren't seriously attempted here, so read this as *a* route
+that works rather than the recommended one. (The binding also didn't turn up among
+those the SpaceCalibrator package registers, but that wasn't investigated far
+enough to call it a limitation.)
 
 ## Script
 
