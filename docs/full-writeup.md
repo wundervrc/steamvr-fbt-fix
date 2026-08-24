@@ -1,7 +1,8 @@
 # SteamVR full-body tracking on Linux with a non-lighthouse HMD
 
-Solved 2026-08-23 on CachyOS. SteamVR 2.17.7, Quest 2 over Steam Link,
-4x Watchman dongles, 4x Vive/HTC Tracker 3, 2x base stations.
+Solved 2026-08-23 on CachyOS. SteamVR 2.17.7, on the SteamVR beta and the Steam
+client beta. Quest 2 over Steam Link, 4x Watchman dongles, 2x VIVE Tracker 3.0 MV,
+2x Tundra Tracker, 2x base stations.
 
 ## Symptom
 

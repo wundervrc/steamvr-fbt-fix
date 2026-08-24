@@ -6,7 +6,8 @@ headset comes from a **different driver**, such as Steam Link, ALVR, or WiVRn.
 If your trackers work fine under WiVRn but do not appear in SteamVR at all, this is
 almost certainly your problem, and it is a one key fix.
 
-Confirmed on CachyOS, SteamVR 2.17.7, Quest 2 over Steam Link, Vive Tracker 3.0 and
+Confirmed on CachyOS, SteamVR 2.17.7 (SteamVR beta and Steam client beta), Quest 2
+over Steam Link, 2x VIVE Tracker 3.0 MV, 2x Tundra Tracker, 4x Watchman dongles and
 2 base stations.
 
 ## The cause
