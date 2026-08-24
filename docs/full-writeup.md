@@ -159,6 +159,6 @@ key.
 
 ## Provenance
 
-Diagnosed and written by AI (Claude), working from live logs on the machine
+Diagnosed and written by AI (Claude) :3 working from live logs on the machine
 described above, then verified end to end on that hardware by its owner. The log
 excerpts are real output, not illustrative examples.
