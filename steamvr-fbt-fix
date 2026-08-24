@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
-# steamvr-fbt-fix — make lighthouse trackers (Vive/Tundra) work in SteamVR on Linux
+# steamvr-fbt-fix: make lighthouse trackers (Vive/Tundra) work in SteamVR on Linux
 # when the HMD comes from a non-lighthouse driver (Steam Link / ALVR / WiVRn).
 #
 # Root cause it fixes:
 #   SteamVR only *completes activation* for devices belonging to the driver that
 #   provides the HMD. With Steam Link the HMD comes from driver_vrlink, so
-#   driver_lighthouse loads, opens the dongles, and talks to the trackers -- but
+#   driver_lighthouse loads, opens the dongles, and talks to the trackers, but
 #   activation never finishes and they never appear. The tell in vrserver.txt is
 #   a "started activation" line with no matching "finished adding" line, plus the
 #   tracker looping "Transition to protocol version 0/1" once per second.
 #
 # The fix is steamvr.activateMultipleDrivers = true (+ driver_lighthouse.enable).
+#
+# Written by AI (Claude) and verified on real hardware. MIT licensed.
+# https://github.com/wundervrc/steamvr-fbt-fix
 #
 # Usage:
 #   steamvr-fbt-fix            patch settings (stops SteamVR first)
@@ -39,7 +42,7 @@ ok()   { printf '  \033[1;32mOK\033[0m   %s\n' "$*"; }
 warn() { printf '  \033[1;33mWARN\033[0m %s\n' "$*"; }
 bad()  { printf '  \033[1;31mFAIL\033[0m %s\n' "$*"; }
 
-[ -f "$SETTINGS" ] || { bad "no steamvr.vrsettings at $SETTINGS -- run SteamVR once first"; exit 1; }
+[ -f "$SETTINGS" ] || { bad "no steamvr.vrsettings at $SETTINGS: run SteamVR once first"; exit 1; }
 
 # ---------------------------------------------------------------- 1. hardware
 say "Checking lighthouse hardware"
@@ -47,7 +50,7 @@ DONGLES=$(lsusb 2>/dev/null | grep -c '28de:2101')
 if [ "$DONGLES" -gt 0 ]; then
   ok "$DONGLES Watchman dongle(s) present"
 else
-  bad "no Watchman dongles (28de:2101) found -- replug them; SteamVR only enumerates at startup"
+  bad "no Watchman dongles (28de:2101) found. Replug them; SteamVR only enumerates at startup"
 fi
 
 # --------------------------------------------------- 2. dongle-stealing procs
@@ -89,7 +92,7 @@ if [ "$MODE" = check ]; then
       | sed 's/^.*\] - /  /' | tail -20
     if grep -q "started activation of tracked device with serial number 'LHR" "$LOG" \
        && ! grep -q "finished adding tracked device with serial number 'LHR" "$LOG"; then
-      bad "trackers started activation but never finished -- this is the bug this script fixes"
+      bad "trackers started activation but never finished. This is the bug this script fixes."
     fi
   fi
   exit 0
@@ -115,7 +118,7 @@ fi
 # ------------------------------------------------------------ 5. patch JSON
 say "Patching $SETTINGS"
 BACKUP="$SETTINGS.bak.$(date +%Y%m%d-%H%M%S)"
-cp "$SETTINGS" "$BACKUP" && ok "backup -> $BACKUP"
+cp "$SETTINGS" "$BACKUP" && ok "backup saved to $BACKUP"
 
 python3 - "$SETTINGS" <<'PY'
 import json, sys, collections
@@ -139,7 +142,7 @@ with open(p, 'w') as f:
 print(f"  activateMultipleDrivers: {before[0]} -> True")
 print(f"  driver_lighthouse.enable: {before[1]} -> True")
 PY
-[ $? -eq 0 ] && ok "settings patched" || { bad "patch failed -- restoring"; cp "$BACKUP" "$SETTINGS"; exit 1; }
+[ $? -eq 0 ] && ok "settings patched" || { bad "patch failed, restoring"; cp "$BACKUP" "$SETTINGS"; exit 1; }
 
 # ------------------------------------------------------------- 6. launch
 if [ "$MODE" = launch ]; then
@@ -163,4 +166,4 @@ fi
 
 echo
 say "Reminder: Steam Link tracks inside-out, so trackers land in a different"
-echo "  coordinate space. Run OpenVR-SpaceCalibrator once per session/room setup."
+echo "  coordinate space. Run OpenVR-SpaceCalibrator once per room setup."
