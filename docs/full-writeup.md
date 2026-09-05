@@ -65,8 +65,14 @@ With **SteamVR fully closed**, because it rewrites this file on exit, in
 }
 ```
 
-`activateMultipleDrivers` is the one that matters. `driver_lighthouse.enable` is
-belt and braces, since it was already defaulting on here.
+`activateMultipleDrivers` is the one that does the work. `driver_lighthouse.enable`
+was a no-op here: the key was absent from `steamvr.vrsettings`, absent from
+SteamVR's global `default.vrsettings`, and absent from the lighthouse driver's own
+`default.vrsettings`. SteamVR uses `enable` only to turn drivers *off* (`driver_imu`,
+`driver_knuckles`, `driver_utah`, `driver_gamepad` and `driver_amdwvr` all ship
+`enable: false`), so an absent key means enabled, and the lighthouse driver was
+already loading before the fix. It is set anyway as a defensive measure, for anyone
+who disabled the driver by hand while troubleshooting.
 
 ## Verifying
 
